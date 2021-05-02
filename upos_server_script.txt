@@ -1,0 +1,103 @@
+﻿## 디렉토리 개요 
+
+- ~/pos_server 디렉토리에 관련 파일들이 위치함
+- uchefpos.jar ,upos_config.properties, upos_server.sh, upos_server_console.sh 파일과 
+  빌드 시 생성되는 JSVC 바이너리가 위치함 
+- 배포 파일은 pos_server 로 압축되기 때문에 압축을 풀면 생성되는 ~/pos_server 디렉토리가 
+  이후 작업을 진행하는 작업디렉토리가 됨 
+
+# 필수 파일인 JSVC 가 리눅스 배포판 별 그리고 배포판의 버젼별로 미묘한 차이고 있고 다르기 때문에 apt-get 으로 설치할 수는 없으며 
+현재로서는 아래와 같이 소스 다운 및 컴파일 과정을 수동으로 진행. 이후 자동화 스크립트로 변경 예정  
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+## 프로젝트 빌드 
+1. 빌드 
+> run as > maven clean 
+> run as > maven build.. 선택  후 goal에 assembly:assembly 입력 후 빌드 
+- 위 빌드 실행 후 해당 프로젝트 루트 하위의 target 디렉토리에  uchefpos-0.0.1-SNAPSHOT-jar-with-dependencies.jar 생성됨 
+> uchefpos-0.0.1-SNAPSHOT-jar-with-dependencies.jar 을 uchefpos.jar 파일 이름 변경 
+
+2.압축 화일 생성 
+- 다음의 파일을 적당한 이름으로 압축 
+(uchefpos.jar 파일을 제외한 나머지 파일은 프로젝트에 루트의 deploy 디렉토리에 존재함) 
+
+uchefpos.jar(target 디렉토리에 존재), 
+upos_config.properties, 
+upos_server.sh, 
+upos_server_console.sh 
+
+(이후 빌드가 완료되면 자동으로 위 파일들을 압축파일로 묶어 지정된 폴더로 카피하는 스크립트를 작성할 예정입니다, 
+일단은 수작업으로 위 작업을 진행해 주시기 바랍니다)
+ 
+- 압축된 파일 홈계정으로 업로드 후 다음의 과정을 진행함  
+ 
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+## 설치  
+
+1.자바 설치 (자바 설치및 환경 변수가 설정되어 있으면 1,2 번 과정 패스) 
+> sudo add-apt-repository ppa:webupd8team/java
+> sudo apt-get update
+(다른 방식으로 자바 설치 상관없음) 
+
+2.자바 환경 변수 설정 
+- .prifile 에 자바 환경 변수 설정 
+
+JAVA_HOME='자바 설치 경로'
+PATH=$PATH:$JAVA_HOME/bin
+export JAVA_HOME
+
+3.libtool 및 필요 파일 설치  
+> sudo apt-get install libtool autoconf make  
+
+4.프로젝트 디렉토리 생성 및 압축 파일 해제 
+> pwd 
+/hoom/ubuntu 
+ 
+> mkdir pos_server
+> unzip uchefpos.zip -d ./pos_server  (위 프로젝트 빌드의 2번에서 생성한 압축파일 이름이 uchefpos.zip이라고 가정함) 
+
+5.JSVC 소스 다운 및 컴파일 
+> cd ~/pos_server 
+> mkdir commons_daemon
+> cd commons_daemon
+> wget http://mirror.apache-kr.org//commons/daemon/source/commons-daemon-1.0.15-src.tar.gz
+> tar -xzvf commons-daemon-1.0.15-src.tar.gz
+> cd commons-daemon-1.0.15-src/src/native/unix/
+> support/buildconf.sh 
+> ./configure --with-java='자바 설치 경로'
+(
+혹은 다음과 같이 진행해도 됨 
+> export JAVA_HOME='자바 설치 디렉토리'
+>./configure
+)
+
+> ls
+autom4te.cache  config.nice    configure.in  Makedefs     Makefile.in  support
+CHANGES.txt     config.status  INSTALL.txt   Makedefs.in  man
+config.log      configure      jsvc          Makefile     native
+
+> ./jsvc -help (여기서 에러가 날 경우 JAVA_HOME 환경변수가 적절히 설정되어 있는지 확인) 
+
+6.JSVC 파일을 사용 될  위치로 이동 
+1번에서 언급한 바와 같이 ~/pos_server 디렉토리로 이동 
+> mv jsvc ~/pos_server 
+
+7.설치 확인 
+> cd ~/pos_server
+> ls  (다음의 파일들이 있어야 함) 
+jsvc    upos_config.properties    upos_server.sh    upos_server_console.sh    uchefpos.jar 
+
+8. 파일 모드 변경 
+> sudo chmod +x upos_server.sh 
+> sudo chmod +x upos_server_console.sh 
+
+9. 서버 실행 
+- 콘솔로 실행 
+> ./upos_server_console.sh 
+
+- Daemon으로 실행 및 중지 
+> ./upos_server.sh start | stop 
+
+## 계정명이 바뀌면 위의 upos_server.sh 와 upos_server_console.sh 파일에 USER 변수의 값을 현재 계정으로 수정     
